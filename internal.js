@@ -1904,7 +1904,7 @@ function view_parse(content, minify, filename) {
 		} else if (cmd8 === 'section ' && cmd.lastIndexOf(')') === -1) {
 
 			builderTMP = builder;
-			builder = '+(function(){var $output=$EMPTY';
+			builder = '+(function(){ try { var $output=$EMPTY';
 			sectionName = cmd.substring(8);
 			isSECTION = true;
 			isFN = true;
@@ -1912,7 +1912,7 @@ function view_parse(content, minify, filename) {
 		} else if (cmd7 === 'helper ') {
 
 			builderTMP = builder;
-			builder = 'function ' + cmd.substring(7).trim() + '{var $output=$EMPTY';
+			builder = 'function ' + cmd.substring(7).trim() + '{ try { var $output=$EMPTY';
 			isFN = true;
 			functionsName.push(cmd.substring(7, cmd.indexOf('(', 7)).trim());
 
@@ -1929,7 +1929,8 @@ function view_parse(content, minify, filename) {
 			if (index === -1)
 				index = cmd.indexOf('[', newCommand.length + 10);
 
-			builder += '+(function(){var $source=' + cmd.substring(index).trim() + ';if (!($source instanceof Array) || !source.length)return $EMPTY;var $length=$source.length;var $output=$EMPTY;var index=0;for(var i=0;i<$length;i++){index = i;var ' + newCommand + '=$source[i];$output+=$EMPTY';
+			builder += '+(function(){ var $source=' + cmd.substring(index).trim() + ';if (!$source || !($source instanceof Array) || !source.length)return $EMPTY;var $length=$source.length;var $output=$EMPTY;var index=0;for(var i=0;i<$length;i++){index = i;var ' + newCommand + '=$source[i];$output+=$EMPTY';
+			// builder += '+(function(){ var $source=' + cmd.substring(index).trim() + ';console.log($source);$output+=$EMPTY;{';
 
 		} else if (cmd === 'end') {
 
@@ -1974,7 +1975,7 @@ function view_parse(content, minify, filename) {
 			if (tmp) {
 				if (view_parse_plus(builder))
 					builder += '+';
-				builder += wrapTryCatch(tmp, command.command);
+				builder += wrapTryCatch(tmp, command.command, command.line);
 			}
 		}
 
@@ -1994,10 +1995,10 @@ function view_parse(content, minify, filename) {
 	return eval(fn);
 }
 
-function wrapTryCatch(value, command) {
+function wrapTryCatch(value, command, line) {
 	if (!framework.isDebug)
 		return value;
-	return '(function(){try{return ' + value + '}catch(e){throw new Error(unescape(\'' + escape(command) + '\') + \' - \' + e.message.toString());}return $EMPTY})()';
+	return '(function(){try{return ' + value + '}catch(e){ throw new Error(unescape(\'' + escape(command) + '\') + \' - Line: ' + line + ' - \' + e.message.toString());}return $EMPTY})()';
 }
 
 function view_parse_plus(builder) {
@@ -2366,6 +2367,7 @@ function view_find_command(content, index) {
 		return {
 			beg: index,
 			end: i,
+			line: content.substr(0, index).split('\n').length,
 			command: content.substring(index + 2, i).trim()
 		};
 	}
